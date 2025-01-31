@@ -17,12 +17,9 @@ import type {
 
 import { Sidebar } from "./Sidebar";
 import { Spinner } from "./Spinner";
-import { testHighlights as _testHighlights } from "./test-highlights";
 
 import "./style/App.css";
 import "../../dist/style.css";
-
-const testHighlights: Record<string, Array<IHighlight>> = _testHighlights;
 
 const getNextId = () => String(Math.random()).slice(2);
 
@@ -44,27 +41,35 @@ const HighlightPopup = ({
     </div>
   ) : null;
 
-const PRIMARY_PDF_URL = "https://arxiv.org/pdf/1708.08021";
-const SECONDARY_PDF_URL = "https://arxiv.org/pdf/1604.02480";
-
 export function App() {
-  const searchParams = new URLSearchParams(document.location.search);
-  const initialUrl = searchParams.get("url") || PRIMARY_PDF_URL;
+  const [url, setUrl] = useState<string | null>(null); // Default PDF
+  const [highlights, setHighlights] = useState<Array<IHighlight>>([]);
 
-  const [url, setUrl] = useState(initialUrl);
-  const [highlights, setHighlights] = useState<Array<IHighlight>>(
-    testHighlights[initialUrl] ? [...testHighlights[initialUrl]] : [],
-  );
-
-  const resetHighlights = () => {
-    setHighlights([]);
+  const fetchHighlights = async (pdfUrl: string) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/highlights?pdfUrl=${encodeURIComponent(pdfUrl)}`);
+      const data = await response.json();
+      setHighlights(data);
+    } catch (error) {
+      console.error("Failed to load highlights:", error);
+    }
   };
 
-  const toggleDocument = () => {
-    const newUrl =
-      url === PRIMARY_PDF_URL ? SECONDARY_PDF_URL : PRIMARY_PDF_URL;
-    setUrl(newUrl);
-    setHighlights(testHighlights[newUrl] ? [...testHighlights[newUrl]] : []);
+  const saveHighlightToDB = async (highlight: IHighlight) => {
+    try {
+      await fetch("http://localhost:5000/api/highlights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...highlight, pdfUrl: url }),
+      });
+    } catch (error) {
+      console.error("Failed to save highlight:", error);
+    }
+  };
+
+  const setPdfPath = (newPath: string) => {
+    setUrl(newPath);
+    fetchHighlights(newPath);
   };
 
   const scrollViewerTo = useRef((highlight: IHighlight) => {});
@@ -77,32 +82,31 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    window.addEventListener("hashchange", scrollToHighlightFromHash, false);
-    return () => {
-      window.removeEventListener(
-        "hashchange",
-        scrollToHighlightFromHash,
-        false,
-      );
-    };
-  }, [scrollToHighlightFromHash]);
+    if (!url) {
+      return;
+    }
+    fetchHighlights(url);
+  }, [url]);
 
   const getHighlightById = (id: string) => {
     return highlights.find((highlight) => highlight.id === id);
   };
 
   const addHighlight = (highlight: NewHighlight) => {
-    console.log("Saving highlight", highlight);
-    setHighlights((prevHighlights) => [
-      { ...highlight, id: getNextId() },
-      ...prevHighlights,
-    ]);
+    const newHighlight = { ...highlight, id: getNextId() };
+    setHighlights((prev) => [newHighlight, ...prev]);
+    saveHighlightToDB(newHighlight);
   };
 
+  const resetHighlights = () => {
+    setHighlights([]);
+    resetHash();
+  }
+  
   const updateHighlight = (
     highlightId: string,
     position: Partial<ScaledPosition>,
-    content: Partial<Content>,
+    content: Partial<Content>
   ) => {
     console.log("Updating highlight", highlightId, position, content);
     setHighlights((prevHighlights) =>
@@ -121,7 +125,7 @@ export function App() {
               ...rest,
             }
           : h;
-      }),
+      })
     );
   };
 
@@ -130,7 +134,7 @@ export function App() {
       <Sidebar
         highlights={highlights}
         resetHighlights={resetHighlights}
-        toggleDocument={toggleDocument}
+        setPdfPath={setPdfPath} // Pass function to Sidebar
       />
       <div
         style={{
@@ -139,7 +143,7 @@ export function App() {
           position: "relative",
         }}
       >
-        <PdfLoader url={url} beforeLoad={<Spinner />}>
+        <PdfLoader url={url} beforeLoad={url ? <Spinner /> : null}>
           {(pdfDocument) => (
             <PdfHighlighter
               pdfDocument={pdfDocument}
@@ -153,7 +157,7 @@ export function App() {
                 position,
                 content,
                 hideTipAndSelection,
-                transformSelection,
+                transformSelection
               ) => (
                 <Tip
                   onOpen={transformSelection}
@@ -170,7 +174,7 @@ export function App() {
                 hideTip,
                 viewportToScaled,
                 screenshot,
-                isScrolledTo,
+                isScrolledTo
               ) => {
                 const isTextHighlight = !highlight.content?.image;
 
@@ -188,7 +192,7 @@ export function App() {
                       updateHighlight(
                         highlight.id,
                         { boundingRect: viewportToScaled(boundingRect) },
-                        { image: screenshot(boundingRect) },
+                        { image: screenshot(boundingRect) }
                       );
                     }}
                   />

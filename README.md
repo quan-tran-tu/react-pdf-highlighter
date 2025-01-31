@@ -26,6 +26,7 @@ import "react-pdf-highlighter/dist/style.css";
 See demo https://agentcooper.github.io/react-pdf-highlighter/.
 
 To run the example app locally:
+Just put your pdfs in ./example/pdf
 
 ```bash
 npm install
