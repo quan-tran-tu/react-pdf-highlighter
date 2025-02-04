@@ -89,6 +89,21 @@ app.post("/api/highlights", (req, res) => {
   );
 });
 
+// Delete a highlight from the database
+app.delete("/api/highlights/:id", (req, res) => {
+  const { id } = req.params;
+
+  db.run("DELETE FROM highlights WHERE id = ?", [id], function (err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: "Highlight not found" });
+    }
+    res.json({ success: true });
+  });
+});
+
 
 app.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);

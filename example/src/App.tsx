@@ -44,10 +44,15 @@ const HighlightPopup = ({
 export function App() {
   const [url, setUrl] = useState<string | null>(null); // Default PDF
   const [highlights, setHighlights] = useState<Array<IHighlight>>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(true); // Controls sidebar visibility
 
   const fetchHighlights = async (pdfUrl: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/highlights?pdfUrl=${encodeURIComponent(pdfUrl)}`);
+      const response = await fetch(
+        `http://localhost:5000/api/highlights?pdfUrl=${encodeURIComponent(
+          pdfUrl
+        )}`
+      );
       const data = await response.json();
       setHighlights(data);
     } catch (error) {
@@ -67,6 +72,7 @@ export function App() {
     }
   };
 
+  // Function to set a new PDF path and load its highlights.
   const setPdfPath = (newPath: string) => {
     setUrl(newPath);
     fetchHighlights(newPath);
@@ -79,18 +85,15 @@ export function App() {
     if (highlight) {
       scrollViewerTo.current(highlight);
     }
-  }, []);
+  }, [highlights]);
 
   useEffect(() => {
-    if (!url) {
-      return;
-    }
+    if (!url) return;
     fetchHighlights(url);
   }, [url]);
 
-  const getHighlightById = (id: string) => {
-    return highlights.find((highlight) => highlight.id === id);
-  };
+  const getHighlightById = (id: string) =>
+    highlights.find((highlight) => highlight.id === id);
 
   const addHighlight = (highlight: NewHighlight) => {
     const newHighlight = { ...highlight, id: getNextId() };
@@ -98,11 +101,18 @@ export function App() {
     saveHighlightToDB(newHighlight);
   };
 
+  // Remove a highlight from state (to be called after successful deletion from backend)
+  const removeHighlight = (id: string) => {
+    setHighlights((prevHighlights) =>
+      prevHighlights.filter((highlight) => highlight.id !== id)
+    );
+  };
+
   const resetHighlights = () => {
     setHighlights([]);
     resetHash();
-  }
-  
+  };
+
   const updateHighlight = (
     highlightId: string,
     position: Partial<ScaledPosition>,
@@ -111,12 +121,8 @@ export function App() {
     console.log("Updating highlight", highlightId, position, content);
     setHighlights((prevHighlights) =>
       prevHighlights.map((h) => {
-        const {
-          id,
-          position: originalPosition,
-          content: originalContent,
-          ...rest
-        } = h;
+        const { id, position: originalPosition, content: originalContent, ...rest } =
+          h;
         return id === highlightId
           ? {
               id,
@@ -130,16 +136,12 @@ export function App() {
   };
 
   return (
-    <div className="App" style={{ display: "flex", height: "100vh" }}>
-      <Sidebar
-        highlights={highlights}
-        resetHighlights={resetHighlights}
-        setPdfPath={setPdfPath} // Pass function to Sidebar
-      />
+    <div className="App" style={{ height: "100vh", position: "relative" }}>
+      {/* PDF Viewer Container (100% width) */}
       <div
         style={{
           height: "100vh",
-          width: "75vw",
+          width: "100%",
           position: "relative",
         }}
       >
@@ -215,7 +217,44 @@ export function App() {
             />
           )}
         </PdfLoader>
+
+        {/* Toggle Button fixed on the right side of the screen */}
+        <button
+          style={{
+            position: "fixed",
+            top: 10,
+            right: "30px", // increased offset so it doesn't overlay the scrollbar
+            zIndex: 100, // Ensure it's above other elements
+          }}
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+        >
+          {sidebarOpen ? "Hide Sidebar" : "Show Sidebar"}
+        </button>
       </div>
+
+      {/* Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "25vw", // 25% of the viewport width
+            height: "100%",
+            backgroundColor: "rgba(255, 255, 255, 0.95)",
+            zIndex: 30,
+            overflowY: "auto",
+            boxShadow: "2px 0 5px rgba(0,0,0,0.3)",
+          }}
+        >
+          <Sidebar
+            highlights={highlights}
+            resetHighlights={resetHighlights}
+            setPdfPath={setPdfPath}
+            removeHighlight={removeHighlight}
+          />
+        </div>
+      )}
     </div>
   );
 }

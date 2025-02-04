@@ -5,6 +5,7 @@ interface Props {
   highlights: Array<IHighlight>;
   resetHighlights: () => void;
   setPdfPath: (path: string) => void;
+  removeHighlight: (id: string) => void; // callback to update parent's state
 }
 
 const updateHash = (highlight: IHighlight) => {
@@ -13,7 +14,7 @@ const updateHash = (highlight: IHighlight) => {
 
 declare const APP_VERSION: string;
 
-export function Sidebar({ highlights, resetHighlights, setPdfPath }: Props) {
+export function Sidebar({ highlights, resetHighlights, setPdfPath, removeHighlight }: Props) {
   const [pdfFiles, setPdfFiles] = useState<string[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -26,6 +27,21 @@ export function Sidebar({ highlights, resetHighlights, setPdfPath }: Props) {
       })
       .catch((error) => console.error("Error fetching PDF files:", error));
   }, []);
+
+  // Handle deleting an individual highlight using the API
+  const handleDeleteHighlight = (id: string) => {
+    fetch(`http://localhost:5000/api/highlights/${id}`, {
+      method: "DELETE",
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          // Remove the highlight from parent's state
+          removeHighlight(id);
+        }
+      })
+      .catch((error) => console.error("Error deleting highlight:", error));
+  };
 
   return (
     <div className="sidebar" style={{ width: "25vw" }}>
@@ -82,38 +98,49 @@ export function Sidebar({ highlights, resetHighlights, setPdfPath }: Props) {
 
       <ul className="sidebar__highlights">
         {highlights.map((highlight, index) => (
-          <li
-            key={index}
-            className="sidebar__highlight"
-            onClick={() => {
-              updateHash(highlight);
-            }}
-          >
-            <div>
-              <strong>{highlight.comment.text}</strong>
-              {highlight.content.text ? (
-                <blockquote style={{ marginTop: "0.5rem" }}>
-                  {`${highlight.content.text.slice(0, 90).trim()}…`}
-                </blockquote>
-              ) : null}
-              {highlight.content.image ? (
-                <div className="highlight__image" style={{ marginTop: "0.5rem" }}>
-                  <img src={highlight.content.image} alt="Screenshot" />
-                </div>
-              ) : null}
+          <li key={index} className="sidebar__highlight" style={{ marginBottom: "1rem" }}>
+            <div onClick={() => updateHash(highlight)} style={{ cursor: "pointer" }}>
+              <div>
+                <strong>{highlight.comment.text}</strong>
+                {highlight.content.text ? (
+                  <blockquote style={{ marginTop: "0.5rem" }}>
+                    {`${highlight.content.text.slice(0, 90).trim()}…`}
+                  </blockquote>
+                ) : null}
+                {highlight.content.image ? (
+                  <div className="highlight__image" style={{ marginTop: "0.5rem" }}>
+                    <img src={highlight.content.image} alt="Screenshot" />
+                  </div>
+                ) : null}
+              </div>
+              <div className="highlight__location">
+                Page {highlight.position.pageNumber}
+              </div>
             </div>
-            <div className="highlight__location">
-              Page {highlight.position.pageNumber}
-            </div>
+            {/* Delete button for the individual highlight */}
+            <button
+              type="button"
+              onClick={() => handleDeleteHighlight(highlight.id)}
+              style={{
+                marginTop: "0.5rem",
+                color: "red",
+                fontSize: "0.8rem",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+              }}
+            >
+              Delete
+            </button>
           </li>
         ))}
       </ul>
       <div style={{ padding: "1rem" }}>
-        {highlights.length > 0 ? (
+        {highlights.length > 0 && (
           <button type="button" onClick={resetHighlights}>
             Reset highlights
           </button>
-        ) : null}
+        )}
       </div>
     </div>
   );
