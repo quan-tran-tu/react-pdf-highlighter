@@ -88,6 +88,17 @@ export function App() {
   }, [highlights]);
 
   useEffect(() => {
+    window.addEventListener("hashchange", scrollToHighlightFromHash, false);
+    return () => {
+      window.removeEventListener(
+        "hashchange",
+        scrollToHighlightFromHash,
+        false,
+      );
+    };
+  }, [scrollToHighlightFromHash]);
+  
+  useEffect(() => {
     if (!url) return;
     fetchHighlights(url);
   }, [url]);
